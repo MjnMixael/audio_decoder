@@ -22,7 +22,18 @@ allprojects {
 }
 
 apply plugin: "com.android.library"
-apply plugin: "kotlin-android"
+
+// AGP 9 compiles Kotlin itself unless the consuming app opts out with
+// android.builtInKotlin=false, and applying KGP on top of it fails the build
+// ("Cannot add extension with name 'kotlin'"). Apply it only when AGP will not.
+def agpMajor = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize(".")[0] as int
+def builtInKotlin = providers.gradleProperty("android.builtInKotlin")
+        .map { it.toBoolean() }
+        .orElse(agpMajor >= 9)
+        .get()
+if (agpMajor < 9 || !builtInKotlin) {
+    apply plugin: "kotlin-android"
+}
 
 android {
     namespace = "nl.silversoft.audio_decoder"
@@ -34,8 +45,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17
+    // kotlinOptions is gone under built-in Kotlin, where jvmTarget already
+    // follows compileOptions.targetCompatibility (17, as set above). Set it
+    // only on the KGP path, where that default does not apply.
+    plugins.withId("org.jetbrains.kotlin.android") {
+        kotlinOptions {
+            jvmTarget = JavaVersion.VERSION_17
+        }
     }
 
     sourceSets {
